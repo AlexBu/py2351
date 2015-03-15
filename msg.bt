@@ -1,0 +1,34 @@
+//--------------------------------------
+//--- 010 Editor v3.2.1 Binary Template
+//
+// File:
+// Author:
+// Revision:
+// Purpose:
+//--------------------------------------
+
+BigEndian();
+byte control;
+byte command;
+short length;
+long id;
+byte session[3];
+byte stx;
+local int i = 0;
+local byte one = 0;
+while(i < length - 13)
+{
+    one = ReadByte(FTell());
+    if(one == 0x1B)
+    {
+        short control;
+        i += 2;
+    }
+    else
+    {
+        byte data;
+        i += 1;
+    }
+}
+
+byte etx;
