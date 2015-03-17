@@ -40,6 +40,9 @@ def talk(socket, sentence):
     data = socket.recv(1024)
     print 'talk respond size', len(data)
     # peek into data buffer for left
+    # TODO: refactor, extract method
+    # TODO: analyze & display incoming package
+    # TODO: packing outgoing package
     while (True):
         infd, outfd, errfd = select.select([socket,],[],[],1)
         print len(infd), len(outfd), len(errfd)
