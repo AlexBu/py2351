@@ -11,7 +11,6 @@ def conn(ip, port):
     return s
     
 def login(socket, username, password):
-
     loginhead = 1
     loginlength = 162
     loginmac = '14DAE9BE3EF2'
@@ -24,38 +23,44 @@ def login(socket, username, password):
                               loginsubversion)
     
     sendcount = socket.send(loginstruct)
-    data = socket.recv(1024)
-    print 'login respond size', len(data)
-    
-    validlogin(data)
+    validlogin(peekdata(socket))
 
 def validlogin(data):
+    if data == None:
+        return
     if ((ord(data[1]) == len(data)) and (ord(data[2]) == 1) ):
         print 'login success!'
     else:
         print data
 
-def talk(socket, sentence):
-    sendcount = socket.send(sentence)
-    data = socket.recv(1024)
-    print 'talk respond size', len(data)
-    # peek into data buffer for left
-    # TODO: refactor, extract method
-    # TODO: analyze & display incoming package
-    # TODO: packing outgoing package
-    while (True):
+def peekdata(socket):
         infd, outfd, errfd = select.select([socket,],[],[],1)
-        print len(infd), len(outfd), len(errfd)
         if len(infd) != 0:
             data = socket.recv(1024)
             print 'talk respond size', len(data)
+            return data
         else:
-            break
+            return None
 
 def hello(socket):
     word = b'\x01\xfe\x00\x11\x14\x10\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-    talk(socket, word)
-    
+    sendcount = socket.send(word)
+    # peek into data buffer for left
+    # TODO: analyze & display incoming package
+    # TODO: packing outgoing package
+    validhello(peekdata(socket))
+    validmatip(peekdata(socket))
+
+def validhello(data):
+    respond = struct.unpack_from(">BBHB", data)
+    print respond
+    return
+
+def validmatip(data):
+    respond = struct.unpack_from(">BBHL", data)
+    print respond
+    return
+
 serverip = "61.155.8.130"
 serverport = 350
 
@@ -65,5 +70,4 @@ loginpass = 'test'
 
 socket = conn(serverip, serverport)
 login(socket, loginuser, loginpass)
-
 hello(socket)
