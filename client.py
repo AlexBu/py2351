@@ -1,4 +1,5 @@
 import socket
+import select
 import struct
 import string
 
@@ -24,6 +25,7 @@ def login(socket, username, password):
     
     sendcount = socket.send(loginstruct)
     data = socket.recv(1024)
+    print 'login respond size', len(data)
     
     validlogin(data)
 
@@ -34,11 +36,21 @@ def validlogin(data):
         print data
 
 def talk(socket, sentence):
-    socket.send(sentence)
+    sendcount = socket.send(sentence)
     data = socket.recv(1024)
+    print 'talk respond size', len(data)
+    # peek into data buffer for left
+    while (True):
+        infd, outfd, errfd = select.select([socket,],[],[],1)
+        print len(infd), len(outfd), len(errfd)
+        if len(infd) != 0:
+            data = socket.recv(1024)
+            print 'talk respond size', len(data)
+        else:
+            break
 
 def hello(socket):
-    word = b'\0x01\0xfe\0x00\0x11\0x14\0x10\0x00\0x02\0x00\0x00\0x00\0x00\0x00\0x00\0x00\0x00\0x00'
+    word = b'\x01\xfe\x00\x11\x14\x10\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     talk(socket, word)
     
 serverip = "61.155.8.130"
@@ -51,5 +63,4 @@ loginpass = 'test'
 socket = conn(serverip, serverport)
 login(socket, loginuser, loginpass)
 
-setence = b'\x01\x02'
-hello(socket, setence)
+hello(socket)
