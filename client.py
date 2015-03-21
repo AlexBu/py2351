@@ -3,6 +3,7 @@ import select
 import struct
 import string
 import sys
+import uuid
 
 # global area
 serverip = "61.155.8.130"
@@ -16,13 +17,49 @@ def conn(ip, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     errno = s.connect_ex((ip, port))
     return s, errno
-    
+
+def communicate(socket, data):
+    socket.send(data)
+    infd = None
+    outfd = None
+    errfd = None
+    recv = ''
+    while True:
+        infd, outfd, errfd = select.select([socket,],[],[],1)
+        if len(infd) != 0:
+            recv_buf = socket.recv(1024)
+            recv += recv_buf
+        else:
+            break
+    return recv
+
+def getoc(data):
+    if len(data) < 6:
+        return None
+    ver, oc, length = struct.unpack_from('>2BH', data)
+    if ver != 1 or oc != 0xfd or length >= len(data):
+        return None
+    #print '[dbg] getoc success ', length, ' ', len(data)
+    return data[length:len(data)]
+
+def get_mac():
+    mac = uuid.UUID(int = uuid.getnode()).hex[-12:]
+    #return ":".join([mac[e:e+2] for e in range(0,11,2)])
+    return mac
+
+def get_ip():
+    myname = socket.getfqdn(socket.gethostname())
+    return socket.gethostbyname(myname)
+
 def login(socket, username, password):
     loginhead = 1
     loginlength = 162
     # replace these values
-    loginmac = '14DAE9BE3EF2'
-    loginip = '192.168.1.107  '
+    #loginmac = '14DAE9BE3EF2'
+    loginmac = get_mac()
+    #loginip = '192.168.1.107  '
+    loginip = get_ip() + '  '
+    print '[dbg] mac = ', loginmac, ' ip = ', loginip
     loginversion = '3911010'
     loginsubversion = '000000'
     loginstruct = struct.pack("2B16s32s12s15s8s77s", loginhead,
@@ -30,8 +67,7 @@ def login(socket, username, password):
                               loginmac, loginip, loginversion,
                               loginsubversion)
     
-    sendcount = socket.send(loginstruct)
-    return validlogin(peekdata(socket))
+    return validlogin(communicate(socket,loginstruct))
 
 def validlogin(data):
     if data == None:
@@ -40,21 +76,11 @@ def validlogin(data):
         return True
     return False
 
-def peekdata(socket):
-    infd, outfd, errfd = select.select([socket,],[],[],5)
-    if len(infd) != 0:
-        data = socket.recv(1024)
-        # TODO: how to solve socket data packing problem?
-        #print '[dbg] talk respond size', len(data)
-        return data
-    else:
-        return None
-
 def hello(socket):
-    sendcount = socket.send(pack_so())
-    if parse_oc(peekdata(socket)) == False:
-        return False
-    return unpack_data(peekdata(socket))
+    data = getoc(communicate(socket,pack_so()))
+    if data == None:
+	return False
+    return unpack_data(data)
 
 def pack_so():
     ver = 1
@@ -112,7 +138,7 @@ def unpack_data(data):
     text = strip_oncemore(text)
     display_info(text)
     return True
-    
+
 def parse_oc(data):
     return unpack_oc(data)
 
@@ -246,25 +272,18 @@ def pack_cmd(cmd):
     return word
 
 def talk(socket, text):
-    sendcount = socket.send(pack_cmd(text))
-    unpack_data(peekdata(socket))
+    unpack_data(communicate(socket, pack_cmd(text)))
 
 def main():
     print 'connecting to server...'
     socket, errno = conn(serverip, serverport)
-    if errno == 0:
-        print 'connect success!'
-    else:
+    if errno != 0:
         print 'connect failed, errno is ', errno
         sys.exit()
-    if login(socket, loginuser, loginpass):
-        print 'login success!'
-    else:
+    if login(socket, loginuser, loginpass) == False:
         print 'login failed!'
         sys.exit()
-    if hello(socket):
-        pass
-    else:
+    if hello(socket) == False:
         print 'say hello failed!'
         sys.exit()
 
